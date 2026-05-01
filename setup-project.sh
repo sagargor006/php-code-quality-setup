@@ -190,6 +190,20 @@ case "$FRAMEWORK" in
         echo ""
         echo -e "${BOLD}Setting up Git hooks...${RESET}"
         setup_git_hook "Laravel/.git-hooks/pre-commit" "pre-commit"
+
+        echo ""
+        echo -e "${BOLD}Installing Composer dev dependencies...${RESET}"
+        if command -v composer &>/dev/null; then
+            (cd "$TARGET_DIR" && composer require --dev \
+                laravel/pint \
+                phpstan/phpstan \
+                larastan/larastan \
+                phpmd/phpmd \
+                friendsofphp/php-cs-fixer)
+        else
+            echo -e "  ${YELLOW}SKIP${RESET}   composer not found — install manually:"
+            echo "  composer require --dev laravel/pint phpstan/phpstan larastan/larastan phpmd/phpmd friendsofphp/php-cs-fixer"
+        fi
         ;;
 
     ci3)
@@ -203,6 +217,19 @@ case "$FRAMEWORK" in
         echo ""
         echo -e "${BOLD}Optional (PhpStorm users)...${RESET}"
         copy_file "Codeigniter 3/CI_PHPSTORM.php"          "CI_PHPSTORM.php"
+
+        echo ""
+        echo -e "${BOLD}Installing Composer dev dependencies...${RESET}"
+        if command -v composer &>/dev/null; then
+            (cd "$TARGET_DIR" && composer require --dev \
+                phpstan/phpstan \
+                phpmd/phpmd \
+                squizlabs/php_codesniffer \
+                friendsofphp/php-cs-fixer)
+        else
+            echo -e "  ${YELLOW}SKIP${RESET}   composer not found — install manually:"
+            echo "  composer require --dev phpstan/phpstan phpmd/phpmd squizlabs/php_codesniffer friendsofphp/php-cs-fixer"
+        fi
         ;;
 
 esac
@@ -217,14 +244,12 @@ echo -e "Next steps:"
 
 case "$FRAMEWORK" in
     laravel)
-        echo "  1. composer require --dev laravel/pint phpstan/phpstan larastan/larastan phpmd/phpmd"
-        echo "  2. Review phpstan.neon and phpmd.xml — adjust rules to your project"
-        echo "  3. Pre-commit hook installed — will run on every 'git commit'"
+        echo "  1. Review phpstan.neon and phpmd.xml — adjust rules to your project"
+        echo "  2. Pre-commit hook installed — will run on every 'git commit'"
         ;;
     ci3)
-        echo "  1. composer require --dev phpstan/phpstan phpmd/phpmd squizlabs/php_codesniffer friendsofphp/php-cs-fixer"
-        echo "  2. Review phpstan.neon — update 'bootstrapFiles' path if phpstan-bootstrap.php moved"
-        echo "  3. Set up pre-commit hook manually (see CodeIgniter 3 README)"
+        echo "  1. Review phpstan.neon — update 'bootstrapFiles' path if phpstan-bootstrap.php moved"
+        echo "  2. Set up pre-commit hook manually (see CodeIgniter 3 README)"
         ;;
 esac
 
