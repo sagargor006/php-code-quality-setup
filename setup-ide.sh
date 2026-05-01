@@ -80,14 +80,12 @@ COMMON_EXTENSIONS=(
     "xdebug.php-debug"                      # step debugging via Xdebug
 
     # --- Code Quality ---
-    "valeryanm.vscode-phpsab"               # phpcs sniffer (PSR12 inline warnings)
     "ecodes.vscode-phpmd"                   # PHPMD mess detector
     "sanderronde.phpstan-vscode"            # PHPStan static analysis
 
     # --- Editor Utilities ---
     "editorconfig.editorconfig"             # respect .editorconfig files
     "formulahendry.auto-rename-tag"         # sync rename paired HTML/Blade tags
-    "oderwat.indent-rainbow"                # colorize indentation levels
 )
 
 LARAVEL_EXTENSIONS=(
@@ -101,6 +99,7 @@ LARAVEL_EXTENSIONS=(
 
 CI3_EXTENSIONS=(
     "junstyle.php-cs-fixer"                # php-cs-fixer formatter on save
+    "valeryanm.vscode-phpsab"              # phpcs sniffer (PSR12 inline warnings)
 )
 
 # -------------------
@@ -271,15 +270,7 @@ apply_laravel_settings() {
     "laravel-pint.enable": true,
     "laravel-pint.executablePath": "${workspaceFolder}/vendor/bin/pint",
 
-    "phpsab.standard": "PSR12",
-    "phpsab.debug": false,
-    "phpsab.fixerEnable": false,
-    "phpsab.executablePathCS": "${workspaceFolder}/vendor/bin/phpcs",
-    "phpsab.executablePathCBF": "${workspaceFolder}/vendor/bin/phpcbf",
-    "phpsab.snifferArguments": [],
-
     "phpmd.verbose": true,
-    "phpmd.command": "${workspaceFolder}/vendor/bin/phpmd",
     "phpmd.rules": "phpmd.xml",
 
     "phpstan.enabled": true,
@@ -347,7 +338,6 @@ apply_ci3_settings() {
     "phpsab.snifferArguments": [],
 
     "phpmd.verbose": true,
-    "phpmd.command": "${workspaceFolder}/vendor/bin/phpmd",
     "phpmd.rules": "phpmd.xml",
 
     "phpstan.enabled": true,
@@ -368,6 +358,18 @@ EOF
 # -------------------
 # Setup per IDE + Framework
 # -------------------
+# Returns the profile location string for a given IDE + profile name.
+# VSCode/Cursor/etc. use an 8-char hex (MD5 prefix); Antigravity uses name directly.
+get_profile_location() {
+    local ide_name=$1
+    local profile_name=$2
+    if [ "$ide_name" = "Antigravity" ]; then
+        echo "$profile_name"
+    else
+        python3 -c "import hashlib,sys; print(hashlib.md5(sys.argv[1].encode()).hexdigest()[:8])" "$profile_name"
+    fi
+}
+
 setup_ide() {
     local ide_cmd=$1
     local ide_name=$2
@@ -379,17 +381,21 @@ setup_ide() {
     local storage_json="$base_path/globalStorage/storage.json"
 
     if [ "$SETUP_LARAVEL" = true ]; then
+        local laravel_loc
+        laravel_loc=$(get_profile_location "$ide_name" "Laravel")
         echo -e "${BOLD}Applying Laravel settings...${RESET}"
-        apply_laravel_settings "$base_path/profiles/Laravel/settings.json" "$ide_name" "$ide_cmd"
         register_profile "$storage_json" "Laravel" "$ide_name" "$base_path/profiles"
+        apply_laravel_settings "$base_path/profiles/$laravel_loc/settings.json" "$ide_name" "$ide_cmd"
         local all_extensions=("${COMMON_EXTENSIONS[@]}" "${LARAVEL_EXTENSIONS[@]}")
         install_extensions "$ide_cmd" "$ide_name" "Laravel" "${all_extensions[@]}"
     fi
 
     if [ "$SETUP_CI3" = true ]; then
+        local ci3_loc
+        ci3_loc=$(get_profile_location "$ide_name" "CI3")
         echo -e "${BOLD}Applying CI3 settings...${RESET}"
-        apply_ci3_settings "$base_path/profiles/CI3/settings.json" "$ide_name" "$ide_cmd"
         register_profile "$storage_json" "CI3" "$ide_name" "$base_path/profiles"
+        apply_ci3_settings "$base_path/profiles/$ci3_loc/settings.json" "$ide_name" "$ide_cmd"
         local all_extensions=("${COMMON_EXTENSIONS[@]}" "${CI3_EXTENSIONS[@]}")
         install_extensions "$ide_cmd" "$ide_name" "CI3" "${all_extensions[@]}"
     fi
