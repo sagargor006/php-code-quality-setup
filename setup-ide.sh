@@ -63,7 +63,6 @@ EXTENSIONS=(
     "onecentlin.laravel-blade"              # Blade syntax highlighting & snippets
     "onecentlin.laravel5-snippets"          # Route::, Auth::, View:: etc. snippets
     "shufo.vscode-blade-formatter"          # Blade template formatter
-    "ryannaddy.laravel-artisan"             # run artisan commands from command palette
     "codingyu.laravel-goto-view"            # Ctrl+click view name → jump to blade file
 
     # --- Editor Utilities ---
