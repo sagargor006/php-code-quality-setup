@@ -145,6 +145,53 @@ detect_os() {
 detect_os
 
 # -------------------
+# Register Profile
+# -------------------
+# Registers a named profile in the IDE's storage.json so --profile flag works.
+# VSCode uses random hex IDs as locations; Antigravity uses the name directly.
+register_profile() {
+    local storage_json=$1
+    local profile_name=$2
+    local ide_name=$3
+    local profiles_base=$4
+
+    if [ ! -f "$storage_json" ]; then
+        return
+    fi
+
+    python3 - "$storage_json" "$profile_name" "$ide_name" "$profiles_base" << 'PYEOF'
+import json, sys, os, hashlib
+
+storage_json, profile_name, ide_name, profiles_base = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
+with open(storage_json) as f:
+    data = json.load(f)
+
+profiles = data.get('userDataProfiles', [])
+
+# check if already registered by name
+if any(p.get('name') == profile_name for p in profiles):
+    sys.exit(0)
+
+# determine location: Antigravity uses name directly, VSCode uses hex ID
+if ide_name == 'Antigravity':
+    location = profile_name
+else:
+    # deterministic 8-char hex from name, matching VSCode convention
+    location = hashlib.md5(profile_name.encode()).hexdigest()[:8]
+    # ensure profile dir exists at that location
+    profile_dir = os.path.join(profiles_base, location)
+    os.makedirs(profile_dir, exist_ok=True)
+
+profiles.append({'location': location, 'name': profile_name})
+data['userDataProfiles'] = profiles
+
+with open(storage_json, 'w') as f:
+    json.dump(data, f, indent=2)
+PYEOF
+}
+
+# -------------------
 # Install Extensions
 # -------------------
 install_extensions() {
@@ -329,18 +376,22 @@ setup_ide() {
     echo ""
     echo -e "${BOLD}========== $ide_name ==========${RESET}"
 
+    local storage_json="$base_path/globalStorage/storage.json"
+
     if [ "$SETUP_LARAVEL" = true ]; then
-        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${LARAVEL_EXTENSIONS[@]}")
-        install_extensions "$ide_cmd" "$ide_name" "Laravel" "${all_extensions[@]}"
         echo -e "${BOLD}Applying Laravel settings...${RESET}"
         apply_laravel_settings "$base_path/profiles/Laravel/settings.json" "$ide_name" "$ide_cmd"
+        register_profile "$storage_json" "Laravel" "$ide_name" "$base_path/profiles"
+        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${LARAVEL_EXTENSIONS[@]}")
+        install_extensions "$ide_cmd" "$ide_name" "Laravel" "${all_extensions[@]}"
     fi
 
     if [ "$SETUP_CI3" = true ]; then
-        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${CI3_EXTENSIONS[@]}")
-        install_extensions "$ide_cmd" "$ide_name" "CI3" "${all_extensions[@]}"
         echo -e "${BOLD}Applying CI3 settings...${RESET}"
         apply_ci3_settings "$base_path/profiles/CI3/settings.json" "$ide_name" "$ide_cmd"
+        register_profile "$storage_json" "CI3" "$ide_name" "$base_path/profiles"
+        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${CI3_EXTENSIONS[@]}")
+        install_extensions "$ide_cmd" "$ide_name" "CI3" "${all_extensions[@]}"
     fi
 }
 
