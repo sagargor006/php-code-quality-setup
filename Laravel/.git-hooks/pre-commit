@@ -124,4 +124,4 @@ printf "${color_regular_blue}━━━━━━━━━━━━━━━━━
 printf "${color_regular_green}✅ All checks passed. Commit will continue!${color_reset}\n"
 printf "${color_regular_blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${color_reset}\n"
 
-exit 1
+exit 0
