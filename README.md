@@ -39,9 +39,124 @@ Since Cursor's extension marketplace doesn't list the PHPMD extension, you need 
 
 ## 📁 Project-Wise Setup
 
-### Pre-Commit Hooks
+Each project needs its own quality config files (`phpmd.xml`, `phpstan.neon`, etc.) and git hooks. Use the setup script below to copy the right files automatically.
 
-Pre-commit hooks need to be configured for each project. The setup varies by framework. Choose your framework below:
+---
+
+## 🚀 Project Setup Script
+
+`setup-project.sh` copies all required config files and git hooks into your project for the chosen framework.
+
+### Supported Frameworks
+
+| Framework | Arg | Status |
+|-----------|-----|--------|
+| Laravel | `laravel` | ✅ Ready |
+| CodeIgniter 3 | `ci3` | ✅ Ready |
+| CodeIgniter 4 | `ci4` | 🔜 Coming soon |
+
+---
+
+### Option A — Remote (no clone needed)
+
+Run directly from GitHub. No need to download this repo first.
+
+**Laravel:**
+```bash
+curl -sL https://raw.githubusercontent.com/wrteam-sagar/php-code-quality-setup/main/setup-project.sh | bash -s -- laravel
+```
+
+**CodeIgniter 3:**
+```bash
+curl -sL https://raw.githubusercontent.com/wrteam-sagar/php-code-quality-setup/main/setup-project.sh | bash -s -- ci3
+```
+
+> Run from inside your project directory, or pass the path as a second argument:
+> ```bash
+> curl -sL https://raw.githubusercontent.com/wrteam-sagar/php-code-quality-setup/main/setup-project.sh | bash -s -- laravel /path/to/your-project
+> ```
+
+---
+
+### Option B — Local (after cloning this repo)
+
+```bash
+# 1. Clone this repo (once)
+git clone https://github.com/wrteam-sagar/php-code-quality-setup.git
+
+# 2. Make script executable (once)
+chmod +x php-code-quality-setup/setup-project.sh
+
+# 3. Run inside your project
+cd /path/to/your-project
+/path/to/php-code-quality-setup/setup-project.sh laravel
+
+# Or pass target path explicitly
+/path/to/php-code-quality-setup/setup-project.sh ci3 /path/to/your-project
+```
+
+---
+
+### Arguments
+
+```
+setup-project.sh <framework> [target-dir] [--force]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `framework` | Yes | `laravel` or `ci3` |
+| `target-dir` | No | Path to target project. Defaults to current directory |
+| `--force` | No | Overwrite files that already exist |
+
+---
+
+### What Gets Copied
+
+#### Laravel
+
+| File | Purpose |
+|------|---------|
+| `phpmd.xml` | PHPMD mess detector rules |
+| `phpstan.neon` | PHPStan static analysis config |
+| `pint.json` | Laravel Pint code style config |
+| `.php-cs-fixer.dist.php` | PHP-CS-Fixer formatting rules |
+| `.git/hooks/pre-commit` | Pre-commit hook (auto `chmod +x`) |
+
+After copying, install dev dependencies:
+```bash
+composer require --dev laravel/pint phpstan/phpstan larastan/larastan phpmd/phpmd
+```
+
+#### CodeIgniter 3
+
+| File | Purpose |
+|------|---------|
+| `phpmd.xml` | PHPMD mess detector rules |
+| `phpstan.neon` | PHPStan static analysis config |
+| `phpstan-bootstrap.php` | PHPStan bootstrap for CI3 globals |
+| `ci-stubs.php` | CI3 type stubs for static analysis |
+| `.php-cs-fixer.dist.php` | PHP-CS-Fixer formatting rules |
+| `CI_PHPSTORM.php` | PhpStorm helper stubs (optional) |
+
+After copying, install dev dependencies:
+```bash
+composer require --dev phpstan/phpstan phpmd/phpmd squizlabs/php_codesniffer friendsofphp/php-cs-fixer
+```
+
+---
+
+### Behavior
+
+- **Existing files are skipped** by default — your customizations are safe
+- Use `--force` to overwrite with fresh defaults
+- Git hook is skipped with a warning if the target is not a git repo
+
+---
+
+### Manual Setup (Framework-Specific Guides)
+
+Prefer to copy files manually or need pre-commit hook setup instructions?
 
 #### [Laravel](./Laravel/README.md)
 
