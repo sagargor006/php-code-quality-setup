@@ -15,6 +15,10 @@ echo -e "${BOLD}=========================================="
 echo -e "  PHP Code Quality — IDE Setup"
 echo -e "==========================================${RESET}"
 echo ""
+
+# -------------------
+# IDE Selection
+# -------------------
 echo "Which IDE would you like to set up?"
 echo ""
 echo "  1) VSCode"
@@ -41,11 +45,34 @@ case "$IDE_CHOICE" in
 esac
 
 # -------------------
-# IDE Extension Installations
+# Framework Selection
 # -------------------
-ACTIVE_PROFILE="Default"
+echo "Which framework profile would you like to set up?"
+echo ""
+echo "  1) Laravel  (Pint formatter, Blade tools)"
+echo "  2) CI3      (php-cs-fixer, PSR12)"
+echo "  3) All      (both profiles)"
+echo ""
+read -rp "Enter choice [1-3]: " FRAMEWORK_CHOICE </dev/tty
+echo ""
 
-EXTENSIONS=(
+SETUP_LARAVEL=false
+SETUP_CI3=false
+
+case "$FRAMEWORK_CHOICE" in
+    1) SETUP_LARAVEL=true ;;
+    2) SETUP_CI3=true ;;
+    3) SETUP_LARAVEL=true; SETUP_CI3=true ;;
+    *)
+        echo -e "${RED}Invalid choice. Exiting.${RESET}"
+        exit 1
+        ;;
+esac
+
+# -------------------
+# Extension Lists
+# -------------------
+COMMON_EXTENSIONS=(
     # --- PHP Core ---
     "bmewburn.vscode-intelephense-client"   # PHP intellisense, go-to-def, refactor
     "mehedidracula.php-namespace-resolver"  # auto-import & expand namespaces
@@ -54,16 +81,8 @@ EXTENSIONS=(
 
     # --- Code Quality ---
     "valeryanm.vscode-phpsab"               # phpcs sniffer (PSR12 inline warnings)
-    "junstyle.php-cs-fixer"                 # php-cs-fixer formatter on save
     "ecodes.vscode-phpmd"                   # PHPMD mess detector
     "sanderronde.phpstan-vscode"            # PHPStan static analysis
-
-    # --- Laravel ---
-    "amiralizadeh9480.laravel-extra-intellisense"  # route/view/config/env intellisense
-    "onecentlin.laravel-blade"              # Blade syntax highlighting & snippets
-    "onecentlin.laravel5-snippets"          # Route::, Auth::, View:: etc. snippets
-    "shufo.vscode-blade-formatter"          # Blade template formatter
-    "codingyu.laravel-goto-view"            # Ctrl+click view name → jump to blade file
 
     # --- Editor Utilities ---
     "editorconfig.editorconfig"             # respect .editorconfig files
@@ -71,12 +90,72 @@ EXTENSIONS=(
     "oderwat.indent-rainbow"                # colorize indentation levels
 )
 
+LARAVEL_EXTENSIONS=(
+    "open-southeners.laravel-pint"                 # Laravel Pint formatter
+    "amiralizadeh9480.laravel-extra-intellisense"  # route/view/config/env intellisense
+    "onecentlin.laravel-blade"                     # Blade syntax highlighting & snippets
+    "onecentlin.laravel5-snippets"                 # Route::, Auth::, View:: etc. snippets
+    "shufo.vscode-blade-formatter"                 # Blade template formatter
+    "codingyu.laravel-goto-view"                   # Ctrl+click view name → jump to blade file
+)
+
+CI3_EXTENSIONS=(
+    "junstyle.php-cs-fixer"                # php-cs-fixer formatter on save
+)
+
+# -------------------
+# Detect OS & Settings Paths
+# -------------------
+detect_os() {
+    case "$(uname -s)" in
+        Darwin*)
+            OS="mac"
+            VSCODE_BASE="$HOME/Library/Application Support/Code/User"
+            ANTIGRAVITY_BASE="$HOME/Library/Application Support/Antigravity/User"
+            CURSOR_BASE="$HOME/Library/Application Support/Cursor/User"
+            ;;
+        Linux*)
+            OS="linux"
+            VSCODE_BASE="$HOME/.config/Code/User"
+            ANTIGRAVITY_BASE="$HOME/.config/Antigravity/User"
+            CURSOR_BASE="$HOME/.config/Cursor/User"
+            ;;
+        CYGWIN*|MINGW32*|MSYS*|MINGW*)
+            OS="windows"
+            if [ -n "$APPDATA" ]; then
+                VSCODE_BASE="$APPDATA/Code/User"
+                ANTIGRAVITY_BASE="$APPDATA/Antigravity/User"
+                CURSOR_BASE="$APPDATA/Cursor/User"
+            else
+                VSCODE_BASE="$HOME/AppData/Roaming/Code/User"
+                ANTIGRAVITY_BASE="$HOME/AppData/Roaming/Antigravity/User"
+                CURSOR_BASE="$HOME/AppData/Roaming/Cursor/User"
+            fi
+            ;;
+        *)
+            OS="unknown"
+            VSCODE_BASE="$HOME/.config/Code/User"
+            ANTIGRAVITY_BASE="$HOME/.config/Antigravity/User"
+            CURSOR_BASE="$HOME/.config/Cursor/User"
+            echo "Warning: Unknown OS. Using Linux paths as fallback."
+            ;;
+    esac
+}
+
+detect_os
+
+# -------------------
+# Install Extensions
+# -------------------
 install_extensions() {
     local ide_cmd=$1
     local ide_name=$2
+    local profile=$3
+    shift 3
+    local extensions=("$@")
 
     echo ""
-    echo -e "${BOLD}Installing $ide_name Extensions...${RESET}"
+    echo -e "${BOLD}Installing $ide_name extensions → profile: $profile${RESET}"
 
     if ! command -v "$ide_cmd" &>/dev/null; then
         echo -e "  ${YELLOW}SKIP${RESET}   $ide_name not detected."
@@ -87,13 +166,12 @@ install_extensions() {
     local failed_count=0
     local skipped_count=0
 
-    for extension in "${EXTENSIONS[@]}"; do
+    for extension in "${extensions[@]}"; do
         if [[ "$extension" =~ ^[[:space:]]*# ]]; then
             skipped_count=$((skipped_count + 1))
             continue
         fi
 
-        # Strip inline comments and surrounding whitespace
         extension=$(echo "$extension" | sed 's/#.*//' | xargs)
 
         if [ -z "$extension" ]; then
@@ -102,7 +180,7 @@ install_extensions() {
         fi
 
         set +e
-        if $ide_cmd --profile "$ACTIVE_PROFILE" --force --install-extension "$extension" >/dev/null 2>&1; then
+        if $ide_cmd --profile "$profile" --force --install-extension "$extension" >/dev/null 2>&1; then
             success_count=$((success_count + 1))
             echo -e "  ${GREEN}OK${RESET}     $extension"
         else
@@ -118,50 +196,61 @@ install_extensions() {
 }
 
 # -------------------
-# Detect OS & Settings Paths
-# -------------------
-detect_os() {
-    case "$(uname -s)" in
-        Darwin*)
-            OS="mac"
-            VSCODE_SETTINGS_PATH="$HOME/Library/Application Support/Code/User/settings.json"
-            ANTIGRAVITY_SETTINGS_PATH="$HOME/Library/Application Support/Antigravity/User/settings.json"
-            CURSOR_SETTINGS_PATH="$HOME/Library/Application Support/Cursor/User/settings.json"
-            ;;
-        Linux*)
-            OS="linux"
-            VSCODE_SETTINGS_PATH="$HOME/.config/Code/User/settings.json"
-            ANTIGRAVITY_SETTINGS_PATH="$HOME/.config/Antigravity/User/settings.json"
-            CURSOR_SETTINGS_PATH="$HOME/.config/Cursor/User/settings.json"
-            ;;
-        CYGWIN*|MINGW32*|MSYS*|MINGW*)
-            OS="windows"
-            if [ -n "$APPDATA" ]; then
-                VSCODE_SETTINGS_PATH="$APPDATA/Code/User/settings.json"
-                ANTIGRAVITY_SETTINGS_PATH="$APPDATA/Antigravity/User/settings.json"
-                CURSOR_SETTINGS_PATH="$APPDATA/Cursor/User/settings.json"
-            else
-                VSCODE_SETTINGS_PATH="$HOME/AppData/Roaming/Code/User/settings.json"
-                ANTIGRAVITY_SETTINGS_PATH="$HOME/AppData/Roaming/Antigravity/User/settings.json"
-                CURSOR_SETTINGS_PATH="$HOME/AppData/Roaming/Cursor/User/settings.json"
-            fi
-            ;;
-        *)
-            OS="unknown"
-            VSCODE_SETTINGS_PATH="$HOME/.config/Code/User/settings.json"
-            ANTIGRAVITY_SETTINGS_PATH="$HOME/.config/Antigravity/User/settings.json"
-            CURSOR_SETTINGS_PATH="$HOME/.config/Cursor/User/settings.json"
-            echo "Warning: Unknown OS. Using Linux paths as fallback."
-            ;;
-    esac
-}
-
-detect_os
-
-# -------------------
 # Apply Settings
 # -------------------
-apply_settings() {
+apply_laravel_settings() {
+    local settings_path=$1
+    local ide_name=$2
+    local ide_cmd=$3
+
+    if ! command -v "$ide_cmd" &>/dev/null && [ ! -d "$(dirname "$settings_path")" ]; then
+        echo -e "  ${YELLOW}SKIP${RESET}   $ide_name not detected. Skipping settings."
+        return
+    fi
+
+    mkdir -p "$(dirname "$settings_path")"
+
+    cat > "$settings_path" << 'EOF'
+{
+    "editor.formatOnSave": true,
+
+    "[php]": {
+        "editor.defaultFormatter": "open-southeners.laravel-pint"
+    },
+
+    "intelephense.format.braces": "k&r",
+    "php.format.rules.indentBraces": false,
+
+    "laravel-pint.enable": true,
+    "laravel-pint.executablePath": "${workspaceFolder}/vendor/bin/pint",
+
+    "phpsab.standard": "PSR12",
+    "phpsab.debug": false,
+    "phpsab.fixerEnable": false,
+    "phpsab.executablePathCS": "${workspaceFolder}/vendor/bin/phpcs",
+    "phpsab.executablePathCBF": "${workspaceFolder}/vendor/bin/phpcbf",
+    "phpsab.snifferArguments": [],
+
+    "phpmd.verbose": true,
+    "phpmd.command": "${workspaceFolder}/vendor/bin/phpmd",
+    "phpmd.rules": "phpmd.xml",
+
+    "phpstan.enabled": true,
+    "phpstan.phpstanPath": "${workspaceFolder}/vendor/bin/phpstan",
+    "phpstan.checkValidity": true,
+    "phpstan.showProgress": true,
+
+    "diffEditor.ignoreTrimWhitespace": false,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "git.enableSmartCommit": true,
+    "prettier.bracketSameLine": true
+}
+EOF
+
+    echo -e "  ${GREEN}OK${RESET}     $ide_name Laravel settings → $settings_path"
+}
+
+apply_ci3_settings() {
     local settings_path=$1
     local ide_name=$2
     local ide_cmd=$3
@@ -226,31 +315,45 @@ apply_settings() {
 }
 EOF
 
-    echo -e "  ${GREEN}OK${RESET}     $ide_name settings → $settings_path"
+    echo -e "  ${GREEN}OK${RESET}     $ide_name CI3 settings → $settings_path"
 }
 
 # -------------------
-# Run for selected IDEs
+# Setup per IDE + Framework
 # -------------------
+setup_ide() {
+    local ide_cmd=$1
+    local ide_name=$2
+    local base_path=$3
+
+    echo ""
+    echo -e "${BOLD}========== $ide_name ==========${RESET}"
+
+    if [ "$SETUP_LARAVEL" = true ]; then
+        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${LARAVEL_EXTENSIONS[@]}")
+        install_extensions "$ide_cmd" "$ide_name" "Laravel" "${all_extensions[@]}"
+        echo -e "${BOLD}Applying Laravel settings...${RESET}"
+        apply_laravel_settings "$base_path/profiles/Laravel/settings.json" "$ide_name" "$ide_cmd"
+    fi
+
+    if [ "$SETUP_CI3" = true ]; then
+        local all_extensions=("${COMMON_EXTENSIONS[@]}" "${CI3_EXTENSIONS[@]}")
+        install_extensions "$ide_cmd" "$ide_name" "CI3" "${all_extensions[@]}"
+        echo -e "${BOLD}Applying CI3 settings...${RESET}"
+        apply_ci3_settings "$base_path/profiles/CI3/settings.json" "$ide_name" "$ide_cmd"
+    fi
+}
+
 if [ "$SETUP_VSCODE" = true ]; then
-    echo -e "${BOLD}--- VSCode ---${RESET}"
-    install_extensions "code" "VSCode"
-    echo -e "${BOLD}Applying VSCode settings...${RESET}"
-    apply_settings "$VSCODE_SETTINGS_PATH" "VSCode" "code"
+    setup_ide "code" "VSCode" "$VSCODE_BASE"
 fi
 
 if [ "$SETUP_ANTIGRAVITY" = true ]; then
-    echo -e "${BOLD}--- Antigravity ---${RESET}"
-    install_extensions "antigravity" "Antigravity"
-    echo -e "${BOLD}Applying Antigravity settings...${RESET}"
-    apply_settings "$ANTIGRAVITY_SETTINGS_PATH" "Antigravity" "antigravity"
+    setup_ide "antigravity" "Antigravity" "$ANTIGRAVITY_BASE"
 fi
 
 if [ "$SETUP_CURSOR" = true ]; then
-    echo -e "${BOLD}--- Cursor ---${RESET}"
-    install_extensions "cursor" "Cursor"
-    echo -e "${BOLD}Applying Cursor settings...${RESET}"
-    apply_settings "$CURSOR_SETTINGS_PATH" "Cursor" "cursor"
+    setup_ide "cursor" "Cursor" "$CURSOR_BASE"
 fi
 
 # -------------------
@@ -269,5 +372,8 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}${BOLD}Setup complete. Restart your IDE(s).${RESET}"
+echo -e "${GREEN}${BOLD}Setup complete.${RESET}"
+echo ""
+echo -e "Switch profiles in your IDE:"
+echo -e "  ${CYAN}Command Palette → 'Profiles: Switch Profile'${RESET}"
 echo ""
