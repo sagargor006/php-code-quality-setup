@@ -22,7 +22,7 @@ echo "  2) Antigravity"
 echo "  3) Cursor"
 echo "  4) All"
 echo ""
-read -rp "Enter choice [1-4]: " IDE_CHOICE
+read -rp "Enter choice [1-4]: " IDE_CHOICE </dev/tty
 echo ""
 
 SETUP_VSCODE=false
